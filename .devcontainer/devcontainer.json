@@ -1,7 +1,10 @@
 {
+  "name": "Codespaces Desktop with Chrome",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
-    "ghcr.io/devcontainers/features/desktop-lite:1": {}
+    "ghcr.io/devcontainers/features/desktop-lite:1": {
+      "version": "latest"
+    }
   },
   "runArgs": [
     "--shm-size=2g"
@@ -9,6 +12,7 @@
   "containerEnv": {
     "DISPLAY": ":1"
   },
+  "remoteUser": "vscode",
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "postStartCommand": "bash .devcontainer/start-desktop.sh",
   "forwardPorts": [
@@ -16,7 +20,7 @@
   ],
   "portsAttributes": {
     "6080": {
-      "label": "Web Desktop",
+      "label": "Web Desktop (noVNC)",
       "onAutoForward": "openBrowser"
     }
   }
