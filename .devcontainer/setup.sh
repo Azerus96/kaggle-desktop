@@ -10,10 +10,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/warp-proxy.sh"
 
 DESKTOP_DIR="${HOME}/Desktop"
-CHROME_EXTENSION_DIR="${HOME}/.config/chrome-extensions/canvas-defender"
 PCMANFM_PROFILE_DIR="${HOME}/.config/pcmanfm/default"
 
-log "[1/6] Installing system dependencies, file-manager desktop support and icon themes"
+log "[1/4] Installing system dependencies, file-manager desktop support and icon themes"
 sudo apt-get update
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
   ca-certificates curl dbus-x11 desktop-file-utils file gnome-icon-theme \
@@ -24,7 +23,7 @@ xdg-user-dirs-update || true
 DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || printf '%s/Desktop' "${HOME}")"
 mkdir -p "${DESKTOP_DIR}"
 
-log "[2/6] Installing Google Chrome"
+log "[2/4] Installing Google Chrome"
 curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb
 sudo apt-get install -y /tmp/chrome.deb
 rm -f /tmp/chrome.deb
@@ -37,35 +36,7 @@ if [ ! -f "${CHROME_ICON}" ]; then
   CHROME_ICON="google-chrome"
 fi
 
-log "[3/6] Installing Cloudflare WARP (optional)"
-if curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg; then
-  # Cloudflare's apt repo lags behind new Ubuntu releases by months (this base
-  # image resolves to the latest LTS codename, e.g. "resolute"/26.04, which the
-  # repo may not have packages for yet -> apt-get update would 404).
-  # Probe the actual Release file instead of hardcoding an allow-list, so this
-  # self-heals once Cloudflare adds support for the current codename instead
-  # of permanently pinning to an older one.
-  UBUNTU_CODENAME="$(lsb_release -cs)"
-  if ! curl -fsSL --head "https://pkg.cloudflareclient.com/dists/${UBUNTU_CODENAME}/Release" >/dev/null 2>&1; then
-    echo "WARP optional notice: Cloudflare repo has no '${UBUNTU_CODENAME}' release yet; falling back to 'jammy' packages (forward-compatible)."
-    UBUNTU_CODENAME="jammy"
-  fi
-  echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ ${UBUNTU_CODENAME} main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list >/dev/null
-  sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cloudflare-warp || echo "WARP optional notice: package install failed"
-else
-  echo "WARP optional notice: repository key download failed"
-fi
-
-log "[4/6] Installing Canvas Defender extension"
-mkdir -p "${CHROME_EXTENSION_DIR}"
-if curl -fsSL https://github.com/multilogin/canvas-defender/releases/download/1.1.0/canvas-defender-1.1.0.zip -o /tmp/canvas.zip; then
-  unzip -o /tmp/canvas.zip -d "${CHROME_EXTENSION_DIR}"
-  rm -f /tmp/canvas.zip
-else
-  echo "Canvas Defender optional notice: extension download failed"
-fi
-
-log "[5/6] Configuring desktop environment and shortcuts"
+log "[3/4] Configuring desktop environment and shortcuts"
 mkdir -p "${PCMANFM_PROFILE_DIR}" "${HOME}/.fluxbox"
 
 cat > "${PCMANFM_PROFILE_DIR}/desktop-items-0.conf" <<'EOF_CONF'
@@ -84,10 +55,6 @@ sort=name
 sort_by=name
 EOF_CONF
 
-# NOTE: at build time WARP has not been started yet (that happens on every
-# container *start*, in run-desktop.sh), so chrome_flags() will correctly
-# return direct-connection flags here. The shortcuts get rewritten with the
-# real, verified proxy state every time the container starts.
 CHROME_FLAGS_STRING="$(chrome_flags)"
 
 create_desktop_file() {
@@ -120,7 +87,7 @@ sudo cp "${DESKTOP_DIR}/"*.desktop /usr/share/applications/
 
 write_fluxbox_menu "${CHROME_FLAGS_STRING}" "${CHROME_ICON}"
 
-log "[6/6] Updating icon cache and permissions"
+log "[4/4] Updating icon cache and permissions"
 sudo gtk-update-icon-cache -f /usr/share/icons/hicolor || true
 sudo update-desktop-database /usr/share/applications || true
 sudo chown -R "$(id -u):$(id -g)" "${HOME}/.config" "${HOME}/.fluxbox" "${DESKTOP_DIR}" || true
