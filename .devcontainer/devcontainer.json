@@ -1,0 +1,14 @@
+{
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/desktop-lite:1": {}
+  },
+  "postCreateCommand": "sudo apt-get update && sudo apt-get install -y firefox",
+  "forwardPorts": [6080],
+  "portsAttributes": {
+    "6080": {
+      "label": "Web Desktop",
+      "onAutoForward": "openBrowser"
+    }
+  }
+}
