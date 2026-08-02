@@ -9,6 +9,16 @@
   "runArgs": [
     "--shm-size=2g"
   ],
+  // Best-effort capabilities so Cloudflare WARP CAN create its tunnel.
+  // If the host (e.g. a hosted GitHub Codespace) refuses these, that's fine:
+  // warp-proxy.sh detects the missing device/capability and Chrome
+  // automatically falls back to a direct connection instead of breaking.
+  "capAdd": [
+    "NET_ADMIN"
+  ],
+  "mounts": [
+    "source=/dev/net/tun,target=/dev/net/tun,type=bind"
+  ],
   "containerEnv": {
     "DISPLAY": ":1"
   },
