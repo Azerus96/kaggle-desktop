@@ -3,11 +3,16 @@
   "features": {
     "ghcr.io/devcontainers/features/desktop-lite:1": {}
   },
+  "runArgs": [
+    "--shm-size=2g"
+  ],
   "containerEnv": {
     "DISPLAY": ":1"
   },
-  "postCreateCommand": "curl -sSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb && sudo apt-get update && sudo apt-get install -y /tmp/chrome.deb && rm /tmp/chrome.deb && mkdir -p ~/Desktop && echo -e '[Desktop Entry]\\nVersion=1.0\\nName=Kaggle Chrome\\nExec=google-chrome --no-sandbox --disable-dev-shm-usage --disable-gpu --password-store=basic https://www.kaggle.com\\nIcon=google-chrome\\nTerminal=false\\nType=Application' > ~/Desktop/Kaggle.desktop && chmod +x ~/Desktop/Kaggle.desktop",
-  "forwardPorts": [6080],
+  "postCreateCommand": "curl -sSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb && sudo apt-get update && sudo apt-get install -y /tmp/chrome.deb && rm /tmp/chrome.deb && mkdir -p ~/Desktop && echo 'W0Rlc2t0b3AgRW50cnldClZlcnNpb249MS4wCk5hbWU9S2FnZ2xlIENocm9tZQpFeGVjPWdvb2dsZS1jaHJvbWUgLS1uby1zYW5kYm94IC0tZGlzYWJsZS1kZXYtc2htLXVzYWdlIC0tZGlzYWJsZS1ncHUgLS1wYXNzd29yZC1zdG9yZT1iYXNpYyBodHRwczovL3d3dy5rYWdnbGUuY29tCkljb249Z29vZ2xlLWNocm9tZQpUZXJtaW5hbD1mYWxzZQpUeXBlPUFwcGxpY2F0aW9u' | base64 -d > ~/Desktop/Kaggle.desktop && chmod +x ~/Desktop/Kaggle.desktop",
+  "forwardPorts": [
+    6080
+  ],
   "portsAttributes": {
     "6080": {
       "label": "Web Desktop",
