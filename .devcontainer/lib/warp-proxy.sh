@@ -26,7 +26,7 @@ warp_try_start() {
   if ! pgrep -x warp-plus >/dev/null 2>&1; then
     warp_log "WARP: Starting warp-plus on port ${WARP_SOCKS_PORT}..."
     # Запускаем без root, биндим SOCKS5 на порт 8086
-    nohup warp-plus -b "${WARP_SOCKS_HOST}:${WARP_SOCKS_PORT}" >/tmp/warp-plus.log 2>&1 &
+    nohup warp-plus -b "${WARP_SOCKS_HOST}:${WARP_SOCKS_PORT}" -4 >/tmp/warp-plus.log 2>&1 &
   fi
 
   # 3. Ждем и проверяем, что трафик реально идет через прокси
