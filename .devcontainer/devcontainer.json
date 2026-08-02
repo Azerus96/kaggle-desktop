@@ -10,6 +10,7 @@
     "DISPLAY": ":1"
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "bash .devcontainer/start-desktop.sh",
   "forwardPorts": [
     6080
   ],
