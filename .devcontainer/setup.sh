@@ -1,107 +1,121 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo "=== [1/6] Installing System Dependencies & Icon Themes ==="
+log() {
+  echo "=== $* ==="
+}
+
+DESKTOP_DIR="${HOME}/Desktop"
+CHROME_EXTENSION_DIR="${HOME}/.config/chrome-extensions/canvas-defender"
+PCMANFM_PROFILE_DIR="${HOME}/.config/pcmanfm/default"
+
+log "[1/6] Installing system dependencies, file-manager desktop support and icon themes"
 sudo apt-get update
-sudo apt-get install -y \
-  curl gnupg pcmanfm unzip xdg-user-dirs x11-utils idesk \
-  hicolor-icon-theme gnome-icon-theme desktop-file-utils \
-  libglib2.0-bin dbus-x11 lxde-icon-theme
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  ca-certificates curl dbus-x11 desktop-file-utils file gnome-icon-theme \
+  gnupg hicolor-icon-theme idesk libglib2.0-bin lsb-release lxde-icon-theme \
+  pcmanfm unzip x11-utils xdg-user-dirs xterm
 
 xdg-user-dirs-update || true
+DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || printf '%s/Desktop' "${HOME}")"
+mkdir -p "${DESKTOP_DIR}"
 
-echo "=== [2/6] Installing Google Chrome ==="
-curl -sSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb
+log "[2/6] Installing Google Chrome"
+curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb
 sudo apt-get install -y /tmp/chrome.deb
 rm -f /tmp/chrome.deb
 
-# Прямой абсолютный путь к иконке Chrome
 CHROME_ICON="/opt/google/chrome/product_logo_48.png"
-if [ ! -f "$CHROME_ICON" ]; then
+if [ ! -f "${CHROME_ICON}" ]; then
   CHROME_ICON="/usr/share/icons/hicolor/48x48/apps/google-chrome.png"
 fi
+if [ ! -f "${CHROME_ICON}" ]; then
+  CHROME_ICON="google-chrome"
+fi
 
-echo "=== [3/6] Installing Cloudflare WARP ==="
-curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
-echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
-sudo apt-get update && sudo apt-get install -y cloudflare-warp || echo "WARP optional notice"
+log "[3/6] Installing Cloudflare WARP (optional)"
+if curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg; then
+  echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list >/dev/null
+  sudo apt-get update && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y cloudflare-warp || echo "WARP optional notice: package install failed"
+else
+  echo "WARP optional notice: repository key download failed"
+fi
 
-echo "=== [4/6] Installing Canvas Defender Extension ==="
-mkdir -p ~/.config/chrome-extensions
-curl -sSL https://github.com/multilogin/canvas-defender/releases/download/1.1.0/canvas-defender-1.1.0.zip -o /tmp/canvas.zip
-unzip -o /tmp/canvas.zip -d ~/.config/chrome-extensions/canvas-defender
-rm -f /tmp/canvas.zip
+log "[4/6] Installing Canvas Defender extension"
+mkdir -p "${CHROME_EXTENSION_DIR}"
+if curl -fsSL https://github.com/multilogin/canvas-defender/releases/download/1.1.0/canvas-defender-1.1.0.zip -o /tmp/canvas.zip; then
+  unzip -o /tmp/canvas.zip -d "${CHROME_EXTENSION_DIR}"
+  rm -f /tmp/canvas.zip
+else
+  echo "Canvas Defender optional notice: extension download failed"
+fi
 
-echo "=== [5/6] Configuring Desktop Environment & Desktop Shortcuts ==="
-TARGET_HOME="$HOME"
-mkdir -p "$TARGET_HOME/Desktop"
-mkdir -p "$TARGET_HOME/.config/pcmanfm/default"
-mkdir -p "$TARGET_HOME/.fluxbox"
+log "[5/6] Configuring desktop environment and shortcuts"
+mkdir -p "${PCMANFM_PROFILE_DIR}" "${HOME}/.fluxbox"
 
-# Конфигурация рабочего стола PCManFM
-cat <<EOF > "$TARGET_HOME/.config/pcmanfm/default/desktop-items-0.conf"
+cat > "${PCMANFM_PROFILE_DIR}/desktop-items-0.conf" <<'EOF_CONF'
 [*]
 wallpaper_mode=color
+wallpaper_common=1
 desktop_bg=#1e293b
 desktop_fg=#ffffff
 desktop_shadow=#000000
 show_desktop=1
 show_wm_menu=1
+show_documents=0
+show_trash=0
+show_mounts=0
 sort=name
 sort_by=name
-EOF
+EOF_CONF
 
-CHROME_FLAGS="--no-sandbox --disable-dev-shm-usage --disable-gpu --proxy-server=\"socks5://127.0.0.1:40000\" --load-extension=$TARGET_HOME/.config/chrome-extensions/canvas-defender --password-store=basic"
+CHROME_FLAGS=(
+  --no-sandbox
+  --disable-dev-shm-usage
+  --disable-gpu
+  --proxy-server=socks5://127.0.0.1:40000
+  --password-store=basic
+)
+if [ -f "${CHROME_EXTENSION_DIR}/manifest.json" ]; then
+  CHROME_FLAGS+=(--load-extension="${CHROME_EXTENSION_DIR}")
+else
+  echo "Canvas Defender optional notice: manifest.json not found; Chrome shortcuts will start without --load-extension"
+fi
+CHROME_FLAGS_STRING="${CHROME_FLAGS[*]}"
 
-# 1. Основной ярлык Google Chrome
-cat <<EOF > "$TARGET_HOME/Desktop/google-chrome.desktop"
+create_desktop_file() {
+  local path="$1"
+  local name="$2"
+  local comment="$3"
+  local url="${4:-}"
+
+  cat > "${path}" <<EOF_DESKTOP
 [Desktop Entry]
 Version=1.0
-Name=Google Chrome
-Comment=Access the Internet
-Exec=google-chrome $CHROME_FLAGS
-Icon=$CHROME_ICON
+Name=${name}
+Comment=${comment}
+Exec=/usr/bin/google-chrome-stable ${CHROME_FLAGS_STRING}${url:+ ${url}}
+Icon=${CHROME_ICON}
 Terminal=false
 Type=Application
 Categories=Network;WebBrowser;
-EOF
+StartupNotify=true
+EOF_DESKTOP
+  chmod 755 "${path}"
+  desktop-file-validate "${path}" || true
+}
 
-# 2. Ярлык Kaggle Chrome
-cat <<EOF > "$TARGET_HOME/Desktop/Kaggle.desktop"
-[Desktop Entry]
-Version=1.0
-Name=Kaggle Chrome
-Comment=Open Kaggle
-Exec=google-chrome $CHROME_FLAGS https://www.kaggle.com
-Icon=$CHROME_ICON
-Terminal=false
-Type=Application
-Categories=Network;WebBrowser;
-EOF
+create_desktop_file "${DESKTOP_DIR}/google-chrome.desktop" "Google Chrome" "Access the Internet"
+create_desktop_file "${DESKTOP_DIR}/Kaggle.desktop" "Kaggle Chrome" "Open Kaggle" "https://www.kaggle.com"
+create_desktop_file "${DESKTOP_DIR}/SageMaker.desktop" "SageMaker Chrome" "Open SageMaker Studio Lab" "https://studiolab.sagemaker.aws/"
 
-# 3. Ярлык SageMaker Chrome
-cat <<EOF > "$TARGET_HOME/Desktop/SageMaker.desktop"
-[Desktop Entry]
-Version=1.0
-Name=SageMaker Chrome
-Comment=Open SageMaker Studio Lab
-Exec=google-chrome $CHROME_FLAGS https://studiolab.sagemaker.aws/
-Icon=$CHROME_ICON
-Terminal=false
-Type=Application
-Categories=Network;WebBrowser;
-EOF
+sudo cp "${DESKTOP_DIR}/"*.desktop /usr/share/applications/
 
-chmod +x "$TARGET_HOME/Desktop/"*.desktop
-sudo cp "$TARGET_HOME/Desktop/Kaggle.desktop" /usr/share/applications/
-sudo cp "$TARGET_HOME/Desktop/SageMaker.desktop" /usr/share/applications/
-
-# Fluxbox Правый Клик Меню
-cat <<EOF > "$TARGET_HOME/.fluxbox/menu"
+cat > "${HOME}/.fluxbox/menu" <<EOF_MENU
 [begin] (Codespaces Desktop)
-  [exec] (Google Chrome) {google-chrome $CHROME_FLAGS} <$CHROME_ICON>
-  [exec] (Kaggle Chrome) {google-chrome $CHROME_FLAGS https://www.kaggle.com} <$CHROME_ICON>
-  [exec] (SageMaker Chrome) {google-chrome $CHROME_FLAGS https://studiolab.sagemaker.aws/} <$CHROME_ICON>
+  [exec] (Google Chrome) {/usr/bin/google-chrome-stable ${CHROME_FLAGS_STRING}} <${CHROME_ICON}>
+  [exec] (Kaggle Chrome) {/usr/bin/google-chrome-stable ${CHROME_FLAGS_STRING} https://www.kaggle.com} <${CHROME_ICON}>
+  [exec] (SageMaker Chrome) {/usr/bin/google-chrome-stable ${CHROME_FLAGS_STRING} https://studiolab.sagemaker.aws/} <${CHROME_ICON}>
   [separator]
   [exec] (File Manager) {pcmanfm}
   [exec] (Terminal) {xterm}
@@ -109,10 +123,11 @@ cat <<EOF > "$TARGET_HOME/.fluxbox/menu"
   [restart] (Restart WM)
   [reconfig] (Reconfigure WM)
 [end]
-EOF
+EOF_MENU
 
-echo "=== [6/6] Updating Icon Cache & Permissions ==="
+log "[6/6] Updating icon cache and permissions"
 sudo gtk-update-icon-cache -f /usr/share/icons/hicolor || true
-sudo chown -R $(whoami):$(whoami) "$TARGET_HOME" || true
+sudo update-desktop-database /usr/share/applications || true
+sudo chown -R "$(id -u):$(id -g)" "${HOME}/.config" "${HOME}/.fluxbox" "${DESKTOP_DIR}" || true
 
-echo "=== DevContainer Setup Completed Successfully! ==="
+log "DevContainer setup completed successfully"
