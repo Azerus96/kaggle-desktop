@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Обновление и установка пакетов, включая xdg-user-dirs для правильной работы рабочего стола
+# Обновление и установка пакетов
 sudo apt-get update
-sudo apt-get install -y curl gnupg pcmanfm unzip xdg-user-dirs
+sudo apt-get install -y curl gnupg pcmanfm unzip xdg-user-dirs x11-utils
 
-# Инициализация стандартных директорий пользователя (чтобы pcmanfm увидел ~/Desktop)
+# Инициализация стандартных директорий пользователя
 xdg-user-dirs-update
 
 # Установка Google Chrome
@@ -17,13 +17,13 @@ curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | sudo gpg --yes --dearmo
 echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
 sudo apt-get update && sudo apt-get install -y cloudflare-warp
 
-# Подготовка расширения для обхода фингерпринтинга (Canvas/WebGL Defender)
+# Подготовка расширения для обхода фингерпринтинга
 mkdir -p ~/.config/chrome-extensions
 curl -sSL https://github.com/multilogin/canvas-defender/releases/download/1.1.0/canvas-defender-1.1.0.zip -o /tmp/canvas.zip
 unzip /tmp/canvas.zip -d ~/.config/chrome-extensions/canvas-defender
 rm /tmp/canvas.zip
 
-# Настройка pcmanfm (темный фон, принудительное отображение иконок)
+# Настройка pcmanfm (темный фон)
 mkdir -p ~/.config/pcmanfm/default
 cat <<EOF > ~/.config/pcmanfm/default/desktop-items-0.conf
 [*]
@@ -36,7 +36,6 @@ EOF
 # Создание ярлыков на рабочем столе
 mkdir -p ~/Desktop
 
-# Ярлык Kaggle
 cat <<EOF > ~/Desktop/Kaggle.desktop
 [Desktop Entry]
 Version=1.0
@@ -48,7 +47,6 @@ Type=Application
 EOF
 chmod +x ~/Desktop/Kaggle.desktop
 
-# Ярлык SageMaker
 cat <<EOF > ~/Desktop/SageMaker.desktop
 [Desktop Entry]
 Version=1.0
@@ -60,7 +58,7 @@ Type=Application
 EOF
 chmod +x ~/Desktop/SageMaker.desktop
 
-# Резервный план: добавление ярлыков в меню Fluxbox (по правому клику мыши)
+# Резервное меню Fluxbox
 mkdir -p ~/.fluxbox
 cat <<EOF > ~/.fluxbox/menu
 [begin] (Fluxbox)
@@ -70,32 +68,4 @@ cat <<EOF > ~/.fluxbox/menu
     [restart] (Restart)
     [exit] (Exit)
 [end]
-EOF
-
-# Настройка автозапуска для Fluxbox
-touch ~/.fluxbox/startup
-
-# Очистка старых записей
-sed -i '/pcmanfm/d' ~/.fluxbox/startup
-sed -i '/warp-svc/d' ~/.fluxbox/startup
-sed -i '/warp-cli/d' ~/.fluxbox/startup
-
-# Добавление сервисов в автозагрузку
-cat << 'EOF' >> ~/.fluxbox/startup
-# Запуск демона WARP
-sudo warp-svc > /dev/null 2>&1 &
-
-# Ожидание готовности демона и подключение
-(
-  for i in {1..30}; do
-    warp-cli --accept-tos status >/dev/null 2>&1 && break
-    sleep 1
-  done
-  warp-cli --accept-tos registration new
-  warp-cli --accept-tos mode proxy
-  warp-cli --accept-tos connect
-) &
-
-# Отрисовка рабочего стола
-pcmanfm --desktop &
 EOF
